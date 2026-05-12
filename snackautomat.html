@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snackautomat</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+:root{--bg:#0f0f11;--s:#1a1a1f;--s2:#222228;--b:#2e2e38;--a:#f5c842;--a2:#e8833a;--t:#f0f0f0;--t2:#888;--t3:#555;--g:#4caf7d;--r:#e05252;--o:#e8833a;--fn:'DM Sans',sans-serif;--mo:'DM Mono',monospace;--rr:8px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--t);font-family:var(--fn);min-height:100vh}
+/* Setup */
+#setup{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:2rem}
+.box{background:var(--s);border:1px solid var(--b);border-radius:16px;padding:2.5rem;max-width:500px;width:100%}
+.box h1{font-size:22px;margin-bottom:.5rem}
+.box p{color:var(--t2);font-size:14px;margin-bottom:2rem;line-height:1.6}
+.steps{display:flex;flex-direction:column;gap:1.2rem;margin-bottom:2rem}
+.step{display:flex;gap:12px;align-items:flex-start}
+.num{min-width:26px;height:26px;border-radius:50%;background:var(--a);color:#000;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.step-txt h3{font-size:14px;font-weight:600;margin-bottom:3px}
+.step-txt p{font-size:13px;color:var(--t2);line-height:1.5}
+.step-txt a{color:var(--a)}
+.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.fg label{font-size:12px;color:var(--t2)}
+.fg input{background:var(--s2);border:1px solid var(--b);color:var(--t);font-family:var(--mo);font-size:13px;padding:10px 12px;border-radius:var(--rr);width:100%}
+.fg input:focus{outline:none;border-color:var(--a)}
+.err{color:var(--r);font-size:13px;margin-top:8px;display:none}
+/* App */
+#app{display:none;max-width:960px;margin:0 auto;padding:1.5rem}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--b);flex-wrap:wrap;gap:8px}
+.topbar h1{font-size:18px}
+.live{font-size:11px;font-family:var(--mo);padding:3px 10px;border-radius:20px;background:var(--s2);color:var(--t2);display:flex;align-items:center;gap:5px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--g);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.machines{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:1.2rem}
+.machines span{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em}
+.mbtn{padding:6px 14px;font-size:13px;font-family:var(--fn);border-radius:20px;cursor:pointer;border:1px solid var(--b);background:var(--s);color:var(--t2);transition:all .15s}
+.mbtn.on{background:var(--a);color:#000;border-color:var(--a);font-weight:600}
+.mbtn:hover:not(.on){border-color:var(--a);color:var(--a)}
+.addbtn{padding:4px 12px;font-size:16px;border-radius:20px;cursor:pointer;border:1px dashed var(--b);background:none;color:var(--t3);transition:all .15s;font-family:var(--fn)}
+.addbtn:hover{color:var(--a);border-color:var(--a)}
+.tabs{display:flex;gap:2px;margin-bottom:1.5rem;background:var(--s);border-radius:var(--rr);padding:4px}
+.tbtn{flex:1;padding:8px 4px;font-size:13px;font-family:var(--fn);background:none;border:none;color:var(--t2);border-radius:6px;cursor:pointer}
+.tbtn.on{background:var(--s2);color:var(--t);font-weight:500}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1.5rem}
+.met{background:var(--s);border:1px solid var(--b);border-radius:var(--rr);padding:14px}
+.met-l{font-size:11px;color:var(--t2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+.met-v{font-size:24px;font-family:var(--mo);font-weight:500}
+.warn{color:var(--o)}.danger{color:var(--r)}.acc{color:var(--a)}
+.card{background:var(--s);border:1px solid var(--b);border-radius:var(--rr);padding:1.25rem;margin-bottom:1rem}
+.ct{font-size:13px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:6px 10px;font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--b);font-weight:500}
+td{padding:10px;border-bottom:1px solid var(--b);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.badge{font-size:11px;padding:3px 8px;border-radius:20px;font-weight:500}
+.bok{background:rgba(76,175,125,.15);color:var(--g)}
+.blow{background:rgba(232,131,58,.15);color:var(--o)}
+.bempty{background:rgba(224,82,82,.15);color:var(--r)}
+.btn{padding:6px 12px;font-size:12px;font-family:var(--fn);border-radius:6px;cursor:pointer;border:1px solid var(--b);background:var(--s2);color:var(--t);transition:all .15s}
+.btn:hover{border-color:var(--a);color:var(--a)}
+.btn:disabled{opacity:.3;cursor:not-allowed}
+.btni{padding:4px 8px;color:var(--t3)}
+.btni:hover{color:var(--r);border-color:var(--r)}
+.btnp{background:var(--a);color:#000;border:none;font-family:var(--fn);font-size:14px;font-weight:600;padding:12px;border-radius:var(--rr);cursor:pointer;width:100%}
+.btnp:hover{background:#f0bd30}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.fgrid .fg{margin-bottom:0}
+.fgrid .fg input,.fgrid .fg select{background:var(--s2);border:1px solid var(--b);color:var(--t);font-family:var(--fn);font-size:13px;padding:8px 10px;border-radius:6px;width:100%}
+.fgrid .fg input:focus,.fgrid .fg select:focus{outline:none;border-color:var(--a)}
+select option{background:var(--s2)}
+.alert{font-size:13px;padding:10px 14px;border-radius:var(--rr);margin-bottom:1rem;border:1px solid;display:none}
+.aok{background:rgba(76,175,125,.1);border-color:rgba(76,175,125,.3);color:var(--g)}
+.aerr{background:rgba(224,82,82,.1);border-color:rgba(224,82,82,.3);color:var(--r)}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:flex;align-items:center;gap:10px}
+.bl{font-size:12px;color:var(--t2);width:100px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bt{flex:1;background:var(--s2);border-radius:4px;height:16px;overflow:hidden}
+.bf{height:100%;background:linear-gradient(90deg,var(--a2),var(--a));border-radius:4px;min-width:4px}
+.bv{font-size:12px;font-family:var(--mo);width:60px;text-align:right;flex-shrink:0}
+.empty{text-align:center;padding:2rem;color:var(--t3);font-size:13px}
+.si{width:60px;background:var(--s2);border:1px solid var(--b);color:var(--t);font-family:var(--mo);font-size:12px;padding:4px 6px;border-radius:4px}
+.si:focus{outline:none;border-color:var(--a)}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--s);border:1px solid var(--b);border-radius:12px;padding:1.5rem;width:320px}
+.modal h2{font-size:16px;margin-bottom:1rem}
+.modal input{background:var(--s2);border:1px solid var(--b);color:var(--t);font-family:var(--fn);font-size:14px;padding:9px 12px;border-radius:6px;width:100%;margin-bottom:1rem}
+.modal input:focus{outline:none;border-color:var(--a)}
+.mbtns{display:flex;gap:8px;justify-content:flex-end}
+</style>
+</head>
+<body>
+
+<div id="setup">
+  <div class="box">
+    <h1>&#x1F36B; Snackautomat Setup</h1>
+    <p>Einmalige Einrichtung &#8212; danach einfach die Seite oeffnen.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="num">1</div>
+        <div class="step-txt">
+          <h3>Firebase Projekt erstellen</h3>
+          <p>Gehe zu <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a> &#8594; Projekt hinzufuegen &#8594; Erstellen.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <div class="step-txt">
+          <h3>Realtime Database aktivieren</h3>
+          <p>Links: Erstellen &#8594; Realtime Database &#8594; Datenbank erstellen &#8594; Testmodus starten.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <div class="step-txt">
+          <h3>URL eintragen</h3>
+          <p>Projektuebersicht &#8594; Web-Icon &#8594; App registrieren &#8594; databaseURL kopieren.</p>
+        </div>
+      </div>
+    </div>
+    <div class="fg">
+      <label>Firebase Datenbank-URL</label>
+      <input type="url" id="fburl" placeholder="https://mein-projekt-default-rtdb.firebaseio.com">
+    </div>
+    <button class="btnp" id="connectBtn">Verbinden und loslegen</button>
+    <div class="err" id="errMsg"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <h1>&#x1F36B; Snackautomat</h1>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="live"><div class="dot"></div><span id="liveLabel">Verbinde...</span></div>
+      <button class="btn" id="disconnectBtn" style="font-size:11px;padding:4px 10px">Trennen</button>
+    </div>
+  </div>
+
+  <div class="machines">
+    <span>Automat:</span>
+    <div id="machineBtns"></div>
+    <button class="addbtn" id="addMachineBtn">+</button>
+  </div>
+
+  <div id="alertBox" class="alert"></div>
+
+  <div class="tabs">
+    <button class="tbtn on" id="tab0">&#x1F4E6; Bestand</button>
+    <button class="tbtn" id="tab1">&#x1F6D2; Verkauf</button>
+    <button class="tbtn" id="tab2">&#x1F4CA; Auswertung</button>
+    <button class="tbtn" id="tab3">&#x2699; Artikel</button>
+  </div>
+
+  <div id="pane0">
+    <div class="grid4" id="metrics"></div>
+    <div class="card">
+      <div class="ct">Aktueller Bestand</div>
+      <div style="overflow-x:auto">
+        <table><thead><tr><th>Artikel</th><th>Preis</th><th>Bestand</th><th>Min.</th><th>Status</th><th>Verkauf</th></tr></thead>
+        <tbody id="bestandBody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <div id="pane1" style="display:none">
+    <div class="card">
+      <div class="ct">Verkauf buchen</div>
+      <div class="fgrid" style="grid-template-columns:2fr 1fr">
+        <div class="fg"><label>Artikel</label><select id="saleArt"></select></div>
+        <div class="fg"><label>Menge</label><input type="number" id="saleQty" value="1" min="1" style="background:var(--s2);border:1px solid var(--b);color:var(--t);font-family:var(--fn);font-size:13px;padding:8px 10px;border-radius:6px;width:100%"></div>
+      </div>
+      <button class="btn" id="saleBtn" style="background:var(--a);color:#000;border-color:var(--a);font-weight:600">Verkauf buchen</button>
+    </div>
+    <div class="card">
+      <div class="ct">Heute</div>
+      <table><thead><tr><th>Zeit</th><th>Artikel</th><th>Menge</th><th>Umsatz</th></tr></thead>
+      <tbody id="todayBody"></tbody></table>
+    </div>
+  </div>
+
+  <div id="pane2" style="display:none">
+    <div class="grid4" id="statsMetrics"></div>
+    <div class="card"><div class="ct">Umsatz je Artikel</div><div class="bars" id="barChart"></div></div>
+    <div class="card">
+      <div class="ct">Alle Verkauefe</div>
+      <table><thead><tr><th>Datum</th><th>Artikel</th><th>Menge</th><th>Umsatz</th></tr></thead>
+      <tbody id="allSalesBody"></tbody></table>
+    </div>
+  </div>
+
+  <div id="pane3" style="display:none">
+    <div class="card">
+      <div class="ct" id="artikelTitle">Artikel anlegen</div>
+      <div class="fgrid">
+        <div class="fg"><label>Name</label><input type="text" id="nName" placeholder="Twix" style="background:var(--s2);border:1px solid var(--b);color:var(--t);font-family:var(--fn);font-size:13px;padding:8px 10px;border-radius:6px;width:100%"></div>
+        <div class="fg"><label>Preis (EUR)</label><input type="number" id="nPrice" placeholder="1.50" step="0.10" min="0.10" style="background:var(--s2);border:1px solid var(--b);color:var(--t);font-family:var(--fn);font-size:13px;padding:8px 10px;border-radius:6px;width:100%"></div>
+        <div class="fg"><label>Anfangsbestand</label><input type="number" id="nStock" placeholder="20" min="0" style="background:var(--s2);border:1px solid var(--b);color:var(--t);font-family:var(--fn);font-size:13px;padding:8px 10px;border-radius:6px;width:100%"></div>
+        <div class="fg"><label>Mindestbestand</label><input type="number" id="nMin" placeholder="5" min="0" style="background:var(--s2);border:1px solid var(--b);color:var(--t);font-family:var(--fn);font-size:13px;padding:8px 10px;border-radius:6px;width:100%"></div>
+      </div>
+      <button class="btn" id="addArtBtn" style="background:var(--a);color:#000;border-color:var(--a);font-weight:600">Hinzufuegen</button>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <div class="ct" style="margin-bottom:0">Bestand und Preise</div>
+        <button class="btn" id="renameMachBtn" style="font-size:11px">Automat umbenennen</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table><thead><tr><th>Name</th><th>Preis</th><th>Bestand</th><th>Min.</th><th>Auffuellen</th><th></th></tr></thead>
+        <tbody id="artikelBody"></tbody></table>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(224,82,82,.3)">
+      <div class="ct" style="color:var(--r)">Gefahrenzone</div>
+      <button class="btn btni" id="delMachBtn" style="color:var(--r);border-color:rgba(224,82,82,.4)">Diesen Automaten loeschen</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2 id="modalTitle">Neuer Automat</h2>
+    <input type="text" id="modalInput" placeholder="z.B. Erdgeschoss">
+    <div class="mbtns">
+      <button class="btn" id="modalCancel">Abbrechen</button>
+      <button class="btn" id="modalOk" style="background:var(--a);color:#000;border-color:var(--a);font-weight:600">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var DEFAULTS = [
+  {id:1,name:'Twix',price:1.50,stock:18,minStock:5},
+  {id:2,name:'Snickers',price:1.50,stock:3,minStock:5},
+  {id:3,name:'Pringles',price:2.00,stock:8,minStock:4},
+  {id:4,name:'Haribo',price:1.20,stock:0,minStock:6},
+  {id:5,name:'Wasser 0,5L',price:1.00,stock:12,minStock:8}
+];
+
+var db = null;
+var machines = [];
+var curMach = null;
+var articles = [];
+var sales = [];
+var nextId = 100;
+var offA = null, offS = null, offM = null;
+var modalMode = '';
+var alertTmr = null;
+
+function $(id){ return document.getElementById(id); }
+
+function toast(msg, type) {
+  var el = $('alertBox');
+  el.textContent = msg;
+  el.className = 'alert ' + (type === 'err' ? 'aerr' : 'aok');
+  el.style.display = 'block';
+  clearTimeout(alertTmr);
+  alertTmr = setTimeout(function(){ el.style.display = 'none'; }, 3000);
+}
+
+function mp(sub) { return 'machines/' + curMach + '/' + sub; }
+function saveA(arr) { db.ref(mp('articles')).set(arr); }
+function saveS(arr) { db.ref(mp('sales')).set(arr); }
+
+function ft(iso) {
+  var d = new Date(iso);
+  return pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+function fd(iso) {
+  var d = new Date(iso);
+  return d.toLocaleDateString('de-DE') + ' ' + ft(iso);
+}
+function pad(n){ return n.toString().padStart(2,'0'); }
+
+// Connect
+$('connectBtn').addEventListener('click', function() {
+  var url = $('fburl').value.trim();
+  if (!url || url.indexOf('https://') !== 0) {
+    $('errMsg').textContent = 'Bitte eine gueltige URL eingeben.';
+    $('errMsg').style.display = 'block';
+    return;
+  }
+  localStorage.setItem('snack_url', url);
+  doConnect(url);
+});
+
+$('fburl').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') $('connectBtn').click();
+});
+
+$('disconnectBtn').addEventListener('click', function() {
+  if (offA) offA();
+  if (offS) offS();
+  if (offM) offM();
+  localStorage.removeItem('snack_url');
+  $('app').style.display = 'none';
+  $('setup').style.display = 'flex';
+});
+
+function doConnect(url) {
+  try {
+    var existing = firebase.apps.find(function(a){ return a.name === 'snack'; });
+    var app = existing ? existing : firebase.initializeApp({databaseURL: url}, 'snack');
+    db = firebase.database(app);
+    $('setup').style.display = 'none';
+    $('app').style.display = 'block';
+    $('errMsg').style.display = 'none';
+    listenMachines();
+  } catch(e) {
+    $('errMsg').textContent = 'Fehler: ' + e.message;
+    $('errMsg').style.display = 'block';
+  }
+}
+
+function listenMachines() {
+  if (offM) offM();
+  var ref = db.ref('machines');
+  var fn = ref.on('value', function(snap) {
+    var data = snap.exists() ? snap.val() : {};
+    machines = Object.keys(data).map(function(k){ return {id:k, name:data[k].name || k}; });
+    if (machines.length === 0) {
+      db.ref('machines/automat_1/name').set('Automat 1');
+      db.ref('machines/automat_1/articles').set(DEFAULTS);
+      db.ref('machines/automat_1/sales').set([]);
+      return;
+    }
+    if (!curMach || !machines.find(function(m){ return m.id === curMach; })) {
+      curMach = machines[0].id;
+    }
+    renderMachBtns();
+    listenData();
+    $('liveLabel').textContent = 'Live verbunden';
+  }, function(e) {
+    $('errMsg').textContent = 'DB Fehler: ' + e.message;
+    $('errMsg').style.display = 'block';
+  });
+  offM = function(){ ref.off('value', fn); };
+}
+
+function listenData() {
+  if (offA) offA();
+  if (offS) offS();
+  var ra = db.ref(mp('articles'));
+  var fa = ra.on('value', function(snap) {
+    var v = snap.exists() ? snap.val() : [];
+    articles = (Array.isArray(v) ? v : Object.values(v)).filter(function(x){ return x && x.id; });
+    nextId = articles.reduce(function(m,a){ return Math.max(m, a.id); }, 0) + 1;
+    renderCurrent();
+  });
+  offA = function(){ ra.off('value', fa); };
+  var rs = db.ref(mp('sales'));
+  var fs = rs.on('value', function(snap) {
+    var v = snap.exists() ? snap.val() : [];
+    sales = (Array.isArray(v) ? v : Object.values(v)).filter(function(x){ return x && x.date; });
+    renderCurrent();
+  });
+  offS = function(){ rs.off('value', fs); };
+}
+
+function renderMachBtns() {
+  var el = $('machineBtns');
+  var html = '';
+  machines.forEach(function(m) {
+    html += '<button class="mbtn' + (m.id === curMach ? ' on' : '') + '" data-id="' + m.id + '">' + m.name + '</button> ';
+  });
+  el.innerHTML = html;
+  el.querySelectorAll('.mbtn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      curMach = this.getAttribute('data-id');
+      renderMachBtns();
+      listenData();
+    });
+  });
+  var cur = machines.find(function(m){ return m.id === curMach; });
+  if (cur) $('artikelTitle').textContent = 'Artikel anlegen — ' + cur.name;
+}
+
+function renderCurrent() {
+  var active = document.querySelector('.tbtn.on');
+  var idx = active ? parseInt(active.id.replace('tab','')) : 0;
+  if (idx === 0) renderBestand();
+  else if (idx === 1) renderVerkauf();
+  else if (idx === 2) renderAuswertung();
+  else if (idx === 3) renderArtikel();
+  renderBestand(); // always update metrics
+}
+
+function renderBestand() {
+  var low = articles.filter(function(a){ return a.stock > 0 && a.stock <= a.minStock; }).length;
+  var empty = articles.filter(function(a){ return a.stock === 0; }).length;
+  var wert = articles.reduce(function(s,a){ return s + a.price * a.stock; }, 0);
+  $('metrics').innerHTML =
+    '<div class="met"><div class="met-l">Artikel</div><div class="met-v">' + articles.length + '</div></div>' +
+    '<div class="met"><div class="met-l">Lagerwert</div><div class="met-v acc">' + wert.toFixed(2) + ' EUR</div></div>' +
+    '<div class="met"><div class="met-l">Niedrig</div><div class="met-v' + (low?' warn':'') + '">' + low + '</div></div>' +
+    '<div class="met"><div class="met-l">Leer</div><div class="met-v' + (empty?' danger':'') + '">' + empty + '</div></div>';
+  var tb = $('bestandBody');
+  if (!articles.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">Noch keine Artikel.</td></tr>'; return; }
+  var html = '';
+  articles.forEach(function(a) {
+    var badge = a.stock === 0 ? '<span class="badge bempty">Leer</span>' : a.stock <= a.minStock ? '<span class="badge blow">Niedrig</span>' : '<span class="badge bok">OK</span>';
+    html += '<tr>' +
+      '<td><strong>' + a.name + '</strong></td>' +
+      '<td style="font-family:var(--mo)">' + a.price.toFixed(2) + ' EUR</td>' +
+      '<td style="font-family:var(--mo);font-size:15px;font-weight:500">' + a.stock + '</td>' +
+      '<td style="color:var(--t3)">' + a.minStock + '</td>' +
+      '<td>' + badge + '</td>' +
+      '<td><button class="btn" style="font-size:11px;padding:4px 10px" data-id="' + a.id + '" ' + (a.stock===0?'disabled':'') + '>- 1 verkaufen</button></td>' +
+      '</tr>';
+  });
+  tb.innerHTML = html;
+  tb.querySelectorAll('button[data-id]').forEach(function(btn) {
+    btn.addEventListener('click', function() { quickSell(parseInt(this.getAttribute('data-id'))); });
+  });
+}
+
+function renderVerkauf() {
+  var sel = $('saleArt');
+  var curVal = sel.value;
+  var avail = articles.filter(function(a){ return a.stock > 0; });
+  sel.innerHTML = avail.map(function(a){
+    return '<option value="' + a.id + '"' + (a.id == curVal ? ' selected' : '') + '>' + a.name + ' (' + a.stock + ' vorhanden)</option>';
+  }).join('');
+  if (!sel.value && avail.length) sel.value = avail[0].id;
+  var today = new Date().toDateString();
+  var ts = sales.filter(function(s){ return new Date(s.date).toDateString() === today; });
+  var tb = $('todayBody');
+  if (!ts.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">Heute noch keine Verkauefe.</td></tr>'; return; }
+  tb.innerHTML = ts.slice().reverse().map(function(s){
+    return '<tr><td style="color:var(--t3);font-family:var(--mo)">' + ft(s.date) + '</td><td>' + s.name + '</td><td>' + s.qty + '</td><td style="font-family:var(--mo)">' + (s.qty*s.price).toFixed(2) + ' EUR</td></tr>';
+  }).join('');
+}
+
+function renderAuswertung() {
+  var today = new Date().toDateString();
+  var todR = sales.filter(function(s){ return new Date(s.date).toDateString()===today; }).reduce(function(s,x){ return s+x.qty*x.price; },0);
+  var totR = sales.reduce(function(s,x){ return s+x.qty*x.price; },0);
+  var totQ = sales.reduce(function(s,x){ return s+x.qty; },0);
+  $('statsMetrics').innerHTML =
+    '<div class="met"><div class="met-l">Gesamtumsatz</div><div class="met-v acc">' + totR.toFixed(2) + ' EUR</div></div>' +
+    '<div class="met"><div class="met-l">Heute</div><div class="met-v">' + todR.toFixed(2) + ' EUR</div></div>' +
+    '<div class="met"><div class="met-l">Stk. verkauft</div><div class="met-v">' + totQ + '</div></div>' +
+    '<div class="met"><div class="met-l">Buchungen</div><div class="met-v">' + sales.length + '</div></div>';
+  var byA = {};
+  sales.forEach(function(s){ byA[s.name] = (byA[s.name]||0) + s.qty*s.price; });
+  var ent = Object.keys(byA).map(function(k){ return [k, byA[k]]; }).sort(function(a,b){ return b[1]-a[1]; });
+  var max = ent.reduce(function(m,e){ return Math.max(m,e[1]); }, 0.01);
+  $('barChart').innerHTML = ent.length ? ent.map(function(e){
+    return '<div class="bar"><div class="bl" title="' + e[0] + '">' + e[0] + '</div><div class="bt"><div class="bf" style="width:' + (e[1]/max*100).toFixed(1) + '%"></div></div><div class="bv">' + e[1].toFixed(2) + ' EUR</div></div>';
+  }).join('') : '<div class="empty">Noch keine Daten.</div>';
+  var tb = $('allSalesBody');
+  if (!sales.length) { tb.innerHTML = '<tr><td colspan="4" class="empty">Keine Verkauefe.</td></tr>'; return; }
+  tb.innerHTML = sales.slice().reverse().map(function(s){
+    return '<tr><td style="color:var(--t3);font-family:var(--mo);font-size:12px">' + fd(s.date) + '</td><td>' + s.name + '</td><td>' + s.qty + '</td><td style="font-family:var(--mo)">' + (s.qty*s.price).toFixed(2) + ' EUR</td></tr>';
+  }).join('');
+}
+
+function renderArtikel() {
+  var tb = $('artikelBody');
+  if (!articles.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">Keine Artikel.</td></tr>'; return; }
+  var html = '';
+  articles.forEach(function(a) {
+    html += '<tr>' +
+      '<td><strong>' + a.name + '</strong></td>' +
+      '<td><input class="si" type="number" value="' + a.price.toFixed(2) + '" step="0.10" min="0.10" data-id="' + a.id + '" data-field="price"></td>' +
+      '<td><input class="si" type="number" value="' + a.stock + '" min="0" data-id="' + a.id + '" data-field="stock"></td>' +
+      '<td><input class="si" type="number" value="' + a.minStock + '" min="0" data-id="' + a.id + '" data-field="minStock"></td>' +
+      '<td style="display:flex;gap:5px;align-items:center"><input class="si" type="number" placeholder="+N" min="1" data-fill="' + a.id + '"><button class="btn" style="padding:4px 8px;font-size:11px" data-fillbtn="' + a.id + '">OK</button></td>' +
+      '<td><button class="btn btni" data-del="' + a.id + '">Loeschen</button></td>' +
+      '</tr>';
+  });
+  tb.innerHTML = html;
+  tb.querySelectorAll('input[data-field]').forEach(function(inp) {
+    inp.addEventListener('blur', function() {
+      var id = parseInt(this.getAttribute('data-id'));
+      var field = this.getAttribute('data-field');
+      var val = Math.max(0, parseFloat(this.value)||0);
+      saveA(articles.map(function(x){ if(x.id!==id) return x; var u=Object.assign({},x); u[field]=val; return u; }));
+    });
+  });
+  tb.querySelectorAll('button[data-fillbtn]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = parseInt(this.getAttribute('data-fillbtn'));
+      var inp = tb.querySelector('input[data-fill="' + id + '"]');
+      var n = parseInt(inp ? inp.value : 0) || 0;
+      if (n <= 0) return;
+      var a = articles.find(function(x){ return x.id===id; });
+      if (!a) return;
+      saveA(articles.map(function(x){ return x.id===id ? Object.assign({},x,{stock:x.stock+n}) : x; }));
+      if (inp) inp.value = '';
+      toast(n + 'x ' + a.name + ' aufgefuellt');
+    });
+  });
+  tb.querySelectorAll('button[data-del]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = parseInt(this.getAttribute('data-del'));
+      if (!confirm('Artikel wirklich loeschen?')) return;
+      saveA(articles.filter(function(x){ return x.id !== id; }));
+      toast('Artikel geloescht');
+    });
+  });
+}
+
+function quickSell(id) {
+  var a = articles.find(function(x){ return x.id===id; });
+  if (!a || a.stock <= 0) return;
+  saveA(articles.map(function(x){ return x.id===id ? Object.assign({},x,{stock:x.stock-1}) : x; }));
+  saveS(sales.concat([{date:new Date().toISOString(),articleId:id,name:a.name,qty:1,price:a.price}]));
+  toast('1x ' + a.name + ' verkauft');
+}
+
+$('saleBtn').addEventListener('click', function() {
+  var id = parseInt($('saleArt').value);
+  var qty = parseInt($('saleQty').value) || 1;
+  var a = articles.find(function(x){ return x.id===id; });
+  if (!a) { toast('Kein Artikel ausgewaehlt.', 'err'); return; }
+  if (a.stock < qty) { toast('Nur ' + a.stock + ' Stueck verfuegbar.', 'err'); return; }
+  saveA(articles.map(function(x){ return x.id===id ? Object.assign({},x,{stock:x.stock-qty}) : x; }));
+  saveS(sales.concat([{date:new Date().toISOString(),articleId:id,name:a.name,qty:qty,price:a.price}]));
+  $('saleQty').value = 1;
+  toast(qty + 'x ' + a.name + ' gebucht');
+});
+
+$('addArtBtn').addEventListener('click', function() {
+  var name = $('nName').value.trim();
+  var price = parseFloat($('nPrice').value);
+  var stock = parseInt($('nStock').value) || 0;
+  var minStock = parseInt($('nMin').value) || 5;
+  if (!name || isNaN(price) || price <= 0) { toast('Bitte Name und Preis eingeben.', 'err'); return; }
+  saveA(articles.concat([{id:nextId++,name:name,price:price,stock:stock,minStock:minStock}]));
+  ['nName','nPrice','nStock','nMin'].forEach(function(id){ $(id).value=''; });
+  toast('"' + name + '" angelegt');
+});
+
+// Tabs
+[0,1,2,3].forEach(function(i) {
+  $('tab'+i).addEventListener('click', function() {
+    document.querySelectorAll('.tbtn').forEach(function(b){ b.classList.remove('on'); });
+    this.classList.add('on');
+    [0,1,2,3].forEach(function(j){ $('pane'+j).style.display = j===i?'block':'none'; });
+    if(i===0) renderBestand();
+    else if(i===1) renderVerkauf();
+    else if(i===2) renderAuswertung();
+    else if(i===3) renderArtikel();
+  });
+});
+
+// Machine modal
+$('addMachineBtn').addEventListener('click', function() {
+  modalMode = 'add';
+  $('modalTitle').textContent = 'Neuer Automat';
+  $('modalInput').value = '';
+  $('modalBg').classList.add('open');
+  setTimeout(function(){ $('modalInput').focus(); }, 50);
+});
+$('renameMachBtn').addEventListener('click', function() {
+  modalMode = 'rename';
+  var cur = machines.find(function(m){ return m.id===curMach; });
+  $('modalTitle').textContent = 'Umbenennen';
+  $('modalInput').value = cur ? cur.name : '';
+  $('modalBg').classList.add('open');
+  setTimeout(function(){ $('modalInput').focus(); }, 50);
+});
+$('modalCancel').addEventListener('click', function() { $('modalBg').classList.remove('open'); });
+$('modalOk').addEventListener('click', function() {
+  var name = $('modalInput').value.trim();
+  if (!name) return;
+  $('modalBg').classList.remove('open');
+  if (modalMode === 'add') {
+    var nid = 'automat_' + Date.now();
+    db.ref('machines/' + nid + '/name').set(name);
+    db.ref('machines/' + nid + '/articles').set([]);
+    db.ref('machines/' + nid + '/sales').set([]);
+    curMach = nid;
+  } else {
+    db.ref('machines/' + curMach + '/name').set(name);
+  }
+});
+$('modalInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') $('modalOk').click();
+  if (e.key === 'Escape') $('modalCancel').click();
+});
+$('delMachBtn').addEventListener('click', function() {
+  if (machines.length <= 1) { toast('Mindestens ein Automat muss vorhanden sein.', 'err'); return; }
+  var cur = machines.find(function(m){ return m.id===curMach; });
+  if (!confirm('Automat "' + cur.name + '" wirklich loeschen?')) return;
+  db.ref('machines/' + curMach).remove();
+  toast('Automat geloescht');
+});
+
+// Auto-reconnect
+var saved = localStorage.getItem('snack_url');
+if (saved) { $('fburl').value = saved; doConnect(saved); }
+</script>
+</body>
+</html>
